@@ -15,7 +15,7 @@ EMBED_ICON = "https://i.imgur.com/FeRu6Pw.png"
 IMAGE_TYPES = (".png", ".jpeg", ".jpg", ".webp", ".gif")
 TAG_BLACKLIST = ["loli", "shota", "guro", "video"]
 HEADERS = {
-    "User-Agent": f"crab-cogs/v1 (https://github.com/hollowstrawberry/crab-cogs);"
+    "User-Agent": f"crab-cogs/v1 (https://github.com/CrazyAYTP/crab-cogs-mod);"
 }
 
 class Rule34(commands.Cog):
