@@ -8,7 +8,7 @@ import html
 from redbot.core import commands, app_commands, Config
 from expiringdict import ExpiringDict
 
-log = logging.getLogger("red.crab-cogs.boorucog")
+log = logging.getLogger("red.crab-cogs.rule34cog")
 
 EMBED_COLOR = 0xD7598B
 EMBED_ICON = "https://i.imgur.com/FeRu6Pw.png"
@@ -18,8 +18,8 @@ HEADERS = {
     "User-Agent": f"crab-cogs/v1 (https://github.com/hollowstrawberry/crab-cogs);"
 }
 
-class Booru(commands.Cog):
-    """Searches images on Gelbooru with slash command and tag completion support."""
+class Rule34(commands.Cog):
+    """Searches images on Rule34.xxx with slash command and tag completion support."""
 
     def __init__(self, bot):
         super().__init__()
@@ -37,53 +37,49 @@ class Booru(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
-    async def boorudeletecache(self, ctx: commands.Context):
+    async def rule34deletecache(self, ctx: commands.Context):
         self.tag_cache = {}
         async with self.config.tag_cache() as tag_cache:
             tag_cache.clear()
         await ctx.react_quietly("✅")
 
-    @commands.hybrid_command(aliases=["gelbooru"])
+    @commands.hybrid_command(aliases=["r34"])
     @app_commands.describe(tags="Will suggest tags with autocomplete. Separate tags with spaces.")
-    async def booru(self, ctx: commands.Context, *, tags: str):
-        """Finds an image on Gelbooru. Type tags separated by spaces.
+    async def rule34(self, ctx: commands.Context, *, tags: str):
+        """Finds an image on Rule34.xxx. Type tags separated by spaces.
 
         As a slash command, will provide suggestions for the latest tag typed.
         Won't repeat the same post until all posts with the same search have been exhausted.
         Will be limited to safe searches in non-NSFW channels.
-        Type - before a tag to exclude it.
-        You can add score:>NUMBER to have a minimum score above a number.
-        You can add rating:general / rating:sensitive / rating:questionable / rating:explicit"""
+        Type - before a tag to exclude it."""
 
         tags = tags.strip()
         if tags.lower() in ["none", "error"]:
             tags = ""
         if not ctx.channel.nsfw:
-            tags = re.sub(" ?rating:[^ ]+", "", tags)
-            tags += " rating:general"
+            await ctx.send("This command can only be used in NSFW channels.")
+            return
 
         try:
             result = await self.grab_image(tags, ctx)
         except:
-            log.exception("Failed to grab image from Gelbooru")
-            await ctx.send("Sorry, there was an error trying to grab an image from Gelbooru. Please try again or contact the bot owner.")
+            log.exception("Failed to grab image from Rule34.xxx")
+            await ctx.send("Sorry, there was an error trying to grab an image from Rule34.xxx. Please try again or contact the bot owner.")
             return
         if not result:
-            description = "💨 No results..."
-            if not ctx.channel.nsfw:
-                description += " (safe mode)"
+            description = "💨 No results found..."
             await ctx.send(embed=discord.Embed(description=description, color=EMBED_COLOR))
             return
 
         embed = discord.Embed(color=EMBED_COLOR)
-        embed.set_author(name="Booru Post", url=f"https://gelbooru.com/index.php?page=post&s=view&id={result['id']}", icon_url=EMBED_ICON)
-        embed.set_image(url=result["file_url"] if result["width"]*result["height"] < 4200000 else result["sample_url"])
+        embed.set_author(name="Rule34 Post", url=f"https://rule34.xxx/index.php?page=post&s=view&id={result['id']}", icon_url=EMBED_ICON)
+        embed.set_image(url=result["file_url"] if result["width"] * result["height"] < 4200000 else result["sample_url"])
         if result.get("source", ""):
             embed.description = f"[🔗 Original Source]({result['source']})"
         embed.set_footer(text=f"⭐ {result.get('score', 0)}")
         await ctx.send(embed=embed)
 
-    @booru.autocomplete("tags")
+    @rule34.autocomplete("tags")
     async def tags_autocomplete(self, interaction: discord.Interaction, current: str):
         if current is None:
             current = ""
@@ -94,7 +90,6 @@ class Booru(commands.Cog):
         excluded = last.startswith('-')
         last = last.lstrip('-')
         if not last and not excluded:
-            # suggestions
             results = []
             if "full_body" not in previous:
                 results.append("full_body")
@@ -102,34 +97,11 @@ class Booru(commands.Cog):
                 results.append("-excluded_tag")
             if "score" not in previous:
                 results += ["score:>10", "score:>100"]
-            if interaction.channel.nsfw and "rating" not in previous:
-                results += ["rating:general", "rating:sensitive", "rating:questionable", "rating:explicit"]
-        elif "rating" in last.lower():
-            if interaction.channel.nsfw:
-                ratings = ["rating:general", "rating:sensitive", "rating:questionable", "rating:explicit"]
-                results = []
-                for r in tuple(ratings):
-                    if r.startswith(last.lower()):
-                        results.append(r)
-                        ratings.remove(r)
-                        break
-                for r in ratings:
-                    results.append(r)
-            else:
-                results = ["rating:general"]
-                excluded = False
-        elif "score" in last.lower():
-            excluded = False
-            results = ["score:>10", "score:>100", "score:>1000"]
-            if re.match(r"score:>([0-9]+)", last):
-                if last in results:
-                    results.remove(last)
-                results.insert(0, last)
         else:
             try:
                 results = await self.grab_tags(last)
             except:
-                log.exception("Failed to load Gelbooru tags")
+                log.exception("Failed to load Rule34 tags")
                 results = ["Error"]
                 previous = None
         if excluded:
@@ -142,11 +114,7 @@ class Booru(commands.Cog):
         if query in self.tag_cache:
             return self.tag_cache[query].split(' ')
         query = urllib.parse.quote(query.lower(), safe=' ')
-        url = f"https://gelbooru.com/index.php?page=dapi&s=tag&q=index&json=1&sort=desc&order_by=index_count&name_pattern=%25{query}%25"
-        api = await self.bot.get_shared_api_tokens("gelbooru")
-        api_key, user_id = api.get("api_key"), api.get("user_id")
-        if api_key and user_id:
-            url += f"&api_key={api_key}&user_id={user_id}"
+        url = f"https://rule34.xxx/index.php?page=dapi&s=tag&q=index&json=1&sort=desc&order_by=index_count&name_pattern=%25{query}%25"
         async with aiohttp.ClientSession(headers=HEADERS) as session:
             async with session.get(url) as resp:
                 data = await resp.json()
@@ -165,18 +133,13 @@ class Booru(commands.Cog):
         tags = [tag for tag in tags if tag not in TAG_BLACKLIST]
         tags += [f"-{tag}" for tag in TAG_BLACKLIST]
         query = ' '.join(tags)
-        url = "https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit=1000&tags=" + query.replace(' ', '+')
-        api = await self.bot.get_shared_api_tokens("gelbooru")
-        api_key, user_id = api.get("api_key"), api.get("user_id")
-        if api_key and user_id:
-            url += f"&api_key={api_key}&user_id={user_id}"
+        url = "https://rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=1000&tags=" + query.replace(' ', '+')
         async with aiohttp.ClientSession(headers=HEADERS) as session:
             async with session.get(url) as resp:
                 data = await resp.json()
         if not data or "post" not in data:
             return {}
         images = [img for img in data["post"] if img["file_url"].endswith(IMAGE_TYPES)]
-        # prevent duplicates
         key = ctx.channel.id
         if key not in self.image_cache:
             self.image_cache[key] = []
